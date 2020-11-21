@@ -17,24 +17,36 @@ namespace JWTtest.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    public class LoginController : ControllerBase
+    public class AuthController : ControllerBase
     {
         private readonly IConfiguration _config; // To read from the config file
         private IJWTService _jwtService;
 
-        private List<User> appUsers = new List<User>
+        static List<User> appUsers = loadDB();
+        public static List<User> loadDB()
         {
-        new User { FullName = "Vaibhav Bhapkar", UserName = "admin", Password = "1234", UserRole = "Admin" },
-        new User { FullName = "Test User", UserName = "user", Password = "1234", UserRole = "User" }
-        };
+            List<User> appUsers = new List<User>();
+            appUsers.Add(new User { FullName = "Vaibhav Bhapkar", UserName = "admin", Password = "1234", UserRole = "Admin" });
+            appUsers.Add(new User { FullName = "Test User", UserName = "user", Password = "1234", UserRole = "User" });
 
-        public LoginController(IConfiguration config, IJWTService jWTService)
+            return appUsers;
+        }
+        
+
+        public AuthController(IConfiguration config, IJWTService jWTService)
         {
             _config = config;
             _jwtService = jWTService;
         }
 
+        [HttpGet]
+        public List<User> GetallUsers()
+        {
+           return appUsers;
+        }
+
         [HttpPost]
+        [Route("login")]
         [AllowAnonymous]
         public IActionResult Login([FromBody] User login)
         {
@@ -53,7 +65,25 @@ namespace JWTtest.Controllers
                 });
             }
 
-            return Unauthorized();
+            return BadRequest("User not found");
+        }
+
+        [HttpPost]
+        [Route("signup")]
+        [AllowAnonymous]
+        public IActionResult Signup([FromBody] User login)
+        {
+            if (login == null)
+                return BadRequest("Validate Input");
+            
+            appUsers.Add(login);
+
+            var tokenString = _jwtService.GenerateJWTtoken(login);
+
+            return Ok(new
+            {
+                token = tokenString
+            });
         }
 
         private User AuthenticateUser(User loginCredentials)
