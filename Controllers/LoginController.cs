@@ -11,6 +11,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
+using JWTTest.Services;
 
 namespace JWTtest.Controllers
 {
@@ -19,6 +20,7 @@ namespace JWTtest.Controllers
     public class LoginController : ControllerBase
     {
         private readonly IConfiguration _config; // To read from the config file
+        private IJWTService _jwtService;
 
         private List<User> appUsers = new List<User>
         {
@@ -26,9 +28,10 @@ namespace JWTtest.Controllers
         new User { FullName = "Test User", UserName = "user", Password = "1234", UserRole = "User" }
         };
 
-        public LoginController(IConfiguration config)
+        public LoginController(IConfiguration config, IJWTService jWTService)
         {
             _config = config;
+            _jwtService = jWTService;
         }
 
         [HttpPost]
@@ -42,7 +45,7 @@ namespace JWTtest.Controllers
 
             if (user != null)
             {
-                var tokenString = GenerateJWTtoken(user);
+                var tokenString = _jwtService.GenerateJWTtoken(user);
 
                 return Ok(new
                 {
@@ -51,30 +54,6 @@ namespace JWTtest.Controllers
             }
 
             return Unauthorized();
-        }
-
-        private string GenerateJWTtoken(User userInfo)
-        {
-            var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_config["Jwt:SecretKey"]));
-            var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
-
-            var claims = new[]
-            {
-                new Claim(JwtRegisteredClaimNames.Sub, userInfo.UserName),
-                new Claim("fullName", userInfo.FullName.ToString()),
-                new Claim("role",userInfo.UserRole),
-                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
-            };
-
-            var token = new JwtSecurityToken(
-            issuer: _config["Jwt:Issuer"],
-            audience: _config["Jwt:Audience"],
-            claims: claims,
-            expires: DateTime.Now.AddMinutes(30),
-            signingCredentials: credentials
-            );
-
-            return new JwtSecurityTokenHandler().WriteToken(token);
         }
 
         private User AuthenticateUser(User loginCredentials)
